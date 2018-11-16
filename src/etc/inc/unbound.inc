@@ -180,6 +180,15 @@ function unbound_generate_config_text($unboundcfg = NULL, $cfgsubdir = "") {
 		$anchor_file = "auto-trust-anchor-file: {$g['unbound_chroot_path']}{$cfgsubdir}/root.key";
 	}
 
+	// Setup DNS64 support
+	if (isset($unboundcfg['dns64'])) {
+		// Order matters in module-config. DNS64 must come first!
+		$module_config = 'dns64 ' . $module_config;
+		if ($unboundcfg['dns64prefix']) {
+			$dns64_prefix = 'dns64-prefix: ' . $unboundcfg['dns64prefix'];
+		}
+	}
+
 	// Setup Python module (post validator)
 	if (isset($unboundcfg['python']) && !empty($unboundcfg['python_script']) && $unboundcfg['python_order'] == 'post_validator') {
 		$module_config .= 'python ';
@@ -390,10 +399,10 @@ EOD;
 						$fwdport = "@853";
 						if (array_key_exists($dnsserver, $dns_hostnames)) {
 							$fwdhost = "#{$dns_hostnames[$dnsserver]}";
-						}
-					}
-					$forward_conf .= "\tforward-addr: {$dnsserver}{$fwdport}{$fwdhost}\n";
 				}
+			}
+					$forward_conf .= "\tforward-addr: {$dnsserver}{$fwdport}{$fwdhost}\n";
+		}
 			}
 		}
 	} else {
@@ -486,6 +495,8 @@ serve-expired: {$dns_record_cache}
 # DNS Rebinding
 {$private_addr}
 {$private_domains}
+# DNS64
+{$dns64_prefix}
 
 # Access lists
 include: {$g['unbound_chroot_path']}{$cfgsubdir}/access_lists.conf
@@ -669,10 +680,10 @@ function unbound_add_domain_overrides($pvt_rev="", $cfgsubdir = "") {
 				}
 				if ($use_tls && array_key_exists($ip, $tls_hostnames)) {
 					$fwdhost = "#{$tls_hostnames[$ip]}";
-				}
-				$domain_entries .= "\tforward-addr: {$ip}{$fwdport}{$fwdhost}\n";
 			}
+				$domain_entries .= "\tforward-addr: {$ip}{$fwdport}{$fwdhost}\n";
 		}
+	}
 	}
 
 	if ($pvt_rev != "") {
