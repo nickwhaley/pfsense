@@ -164,6 +164,15 @@ function unbound_generate_config_text($unboundcfg = NULL, $cfgsubdir = "") {
 		$module_config = "iterator";
 	}
 
+	// Setup DNS64 support
+	if (isset($unboundcfg['dns64'])) {
+		// Order matters in module-config. DNS64 must come first!
+		$module_config = 'dns64 ' . $module_config;
+		if ($unboundcfg['dns64prefix']) {
+			$dns64_prefix = 'dns64-prefix: ' . $unboundcfg['dns64prefix'];
+		}
+	}
+
 	// Setup DNS Rebinding
 	if (!isset($config['system']['webgui']['nodnsrebindcheck'])) {
 		// Private-addresses for DNS Rebinding
@@ -433,6 +442,8 @@ serve-expired: {$dns_record_cache}
 # DNS Rebinding
 {$private_addr}
 {$private_domains}
+# DNS64
+{$dns64_prefix}
 
 # Access lists
 include: {$g['unbound_chroot_path']}{$cfgsubdir}/access_lists.conf

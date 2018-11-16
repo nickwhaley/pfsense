@@ -91,6 +91,12 @@ if (isset($config['unbound']['use_caps'])) {
 	$pconfig['use_caps'] = true;
 }
 
+if (isset($config['unbound']['dns64'])) {
+	$pconfig['dns64'] = true;
+}
+
+$pconfig['dns64prefix'] = $config['unbound']['dns64prefix'];
+
 if ($_POST) {
 	if ($_POST['apply']) {
 		$retval = 0;
@@ -140,6 +146,13 @@ if ($_POST) {
 		}
 		if (isset($_POST['dnssecstripped']) && !isset($config['unbound']['dnssec'])) {
 			$input_errors[] = gettext("Harden DNSSEC Data option can only be enabled if DNSSEC support is enabled.");
+		}
+		if ($_POST['dns64prefix']) {
+			list($padr, $pmask) = explode("/", $_POST['dns64prefix']);
+			if (!$pmask || !is_numericint($pmask) || $pmask > 96 || $pmask < 0)
+				$input_errors[] = gettext("DNS64 Prefix must have a mask of 96 bits or shorter.");
+			if (!is_ipaddrv6($padr))
+				$input_errors[] = gettext("DNS64 Prefix is not a valid IPv6 address and bitmask.");
 		}
 
 		if (!$input_errors) {
@@ -214,6 +227,14 @@ if ($_POST) {
 				unset($config['unbound']['use_caps']);
 			}
 
+			if (isset($_POST['dns64'])) {
+				$config['unbound']['dns64'] = true;
+			} else {
+				unset($config['unbound']['dns64']);
+			}
+
+			$config['unbound']['dns64prefix'] = $_POST['dns64prefix'];
+			
 			write_config(gettext("DNS Resolver configured."));
 
 			mark_subsystem_dirty('unbound');
@@ -275,6 +296,25 @@ $section->addInput(new Form_Checkbox(
 	'Do not fall-back to sending full QNAME to potentially broken DNS servers',
 	$pconfig['qname-minimisation-strict']
 ))->setHelp('QNAME minimization in strict mode. %1$sA significant number of domains will fail to resolve when this option in enabled%2$s. Only use if you know what you are doing. This option only has effect when Query Name Minimization is enabled. Default is off.', '<b>', '</b>');
+
+$form->add($section);
+
+$section = new Form_Section('DNS64');
+
+$section->addInput(new Form_Checkbox(
+	'dns64',
+	'DNS64 Enable',
+	'Synthesize AAAA records using DNS64',
+	$pconfig['dns64']
+))->setHelp('When asked for a domain\'s AAAA records, but only finds A records, synthesizes the AAAA records from the A records. The first part of the synthesized IPv6 address points to an IPv6/IPv4 translator and the second part embeds the IPv4 address from the A record. The translator in question is usually a NAT64 server. See %1$sRFC 6147%2$s for more information.', '<a href="https://tools.ietf.org/html/rfc6147">', '</a>');
+
+$section->addInput(new Form_Input(
+	'dns64prefix',
+	'The prefix to use in DNS64 records.',
+	'text',
+	$pconfig['dns64prefix'],
+	['placeholder' => '64:ff9b::/96']
+))->setHelp('This sets the DNS64 prefix to use to synthesize AAAA records with. It must be /96 or shorter. The default prefix is 64:ff9b::/96.');
 
 $form->add($section);
 
